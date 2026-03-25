@@ -1,0 +1,28 @@
+-- D1 database schema for temp-mail
+CREATE TABLE IF NOT EXISTS emails (
+  id TEXT PRIMARY KEY,
+  mail_to TEXT NOT NULL,
+  mail_from TEXT NOT NULL,
+  subject TEXT DEFAULT '',
+  text_body TEXT DEFAULT '',
+  html_body TEXT DEFAULT '',
+  timestamp INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_emails_to ON emails(mail_to);
+CREATE INDEX IF NOT EXISTS idx_emails_timestamp ON emails(timestamp);
+
+-- Config table for admin panel (key-value store)
+CREATE TABLE IF NOT EXISTS config (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+-- Default config values
+INSERT OR IGNORE INTO config (key, value) VALUES ('domains', '[]');
+INSERT OR IGNORE INTO config (key, value) VALUES ('forward_rules', '[]');
+INSERT OR IGNORE INTO config (key, value) VALUES ('site_name', '云端接码');
+INSERT OR IGNORE INTO config (key, value) VALUES ('auto_delete_hours', '24');
+
+-- Auto cleanup: delete emails older than configured hours
+-- This is done via a cron trigger in the worker
