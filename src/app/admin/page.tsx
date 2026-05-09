@@ -10,9 +10,16 @@ interface ForwardRule {
   target: string;
 }
 
+interface TagRule {
+  tag: string;
+  target: string;
+  label?: string;
+}
+
 interface AdminConfig {
   domains: string[];
   forwardRules: ForwardRule[];
+  tagRules: TagRule[];
   siteName: string;
   autoDeleteHours: number;
   linkFilter: string;
@@ -31,6 +38,7 @@ export default function AdminPage() {
   const [config, setConfig] = useState<AdminConfig>({
     domains: [],
     forwardRules: [],
+    tagRules: [],
     siteName: "云端接码",
     autoDeleteHours: 24,
     linkFilter: "",
@@ -41,10 +49,13 @@ export default function AdminPage() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  // New domain / forward rule inputs
+  // New domain / forward rule / tag rule inputs
   const [newDomain, setNewDomain] = useState("");
   const [newFwdSubdomain, setNewFwdSubdomain] = useState("");
   const [newFwdTarget, setNewFwdTarget] = useState("");
+  const [newTagName, setNewTagName] = useState("");
+  const [newTagTarget, setNewTagTarget] = useState("");
+  const [newTagLabel, setNewTagLabel] = useState("");
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -226,6 +237,24 @@ export default function AdminPage() {
       ...config,
       forwardRules: config.forwardRules.filter((r) => r.subdomain !== subdomain),
     });
+  };
+
+  // Add tag rule
+  const addTagRule = () => {
+    const tag = newTagName.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+    const target = newTagTarget.trim();
+    if (!tag || !target) { showToast("⚠️ 请填写标签名和目标邮箱"); return; }
+    if (config.tagRules.some((r) => r.tag === tag)) { showToast("⚠️ 该标签已存在"); return; }
+    setConfig({
+      ...config,
+      tagRules: [...config.tagRules, { tag, target, label: newTagLabel.trim() || undefined }],
+    });
+    setNewTagName(""); setNewTagTarget(""); setNewTagLabel("");
+  };
+
+  // Remove tag rule
+  const removeTagRule = (tag: string) => {
+    setConfig({ ...config, tagRules: config.tagRules.filter((r) => r.tag !== tag) });
   };
 
   const logout = () => {
@@ -478,6 +507,89 @@ export default function AdminPage() {
             />
             <button
               onClick={addForwardRule}
+              className="px-6 py-2 rounded-lg font-medium text-white text-sm whitespace-nowrap"
+              style={{ background: "var(--primary)" }}
+            >
+              添加
+            </button>
+          </div>
+        </div>
+
+        {/* Tag Rules */}
+        <div className="card mb-6">
+          <h2 className="text-lg font-semibold mb-1" style={{ color: "var(--primary)" }}>
+            🏷️ 标签转发规则
+          </h2>
+          <p className="text-sm text-gray-500 mb-1">
+            在邮箱前缀加 <code className="bg-gray-100 px-1 rounded">-标签</code> 即可触发转发，同时邮件也保存到网页端
+          </p>
+          <p className="text-xs text-gray-400 mb-4">
+            例：设置标签 <strong>vip</strong> → 发到 <code>任意-vip@zxjbf.site</code> 会自动转发到指定邮箱
+          </p>
+
+          {/* Tag list */}
+          <div className="space-y-2 mb-4">
+            {(config.tagRules || []).length === 0 && (
+              <p className="text-gray-400 text-sm py-2">还没有添加标签规则</p>
+            )}
+            {(config.tagRules || []).map((rule) => (
+              <div
+                key={rule.tag}
+                className="flex items-center justify-between rounded-lg px-4 py-3"
+                style={{ background: "var(--primary-light)", border: "1px solid #c8e6c9" }}
+              >
+                <div className="flex-1 flex items-center gap-3 flex-wrap">
+                  <span
+                    className="font-mono text-sm font-bold px-2 py-0.5 rounded"
+                    style={{ background: "var(--primary)", color: "white" }}
+                  >
+                    +{rule.tag}
+                  </span>
+                  {rule.label && (
+                    <span className="text-sm text-gray-600">{rule.label}</span>
+                  )}
+                  <span className="text-gray-400 text-sm">→</span>
+                  <span className="font-mono text-sm text-blue-600">{rule.target}</span>
+                </div>
+                <button
+                  onClick={() => removeTagRule(rule.tag)}
+                  className="text-red-400 hover:text-red-600 text-sm ml-4"
+                >
+                  删除
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Add tag rule */}
+          <div className="flex gap-2 flex-wrap">
+            <input
+              type="text"
+              placeholder="标签名，如 vip"
+              value={newTagName}
+              onChange={(e) => setNewTagName(e.target.value)}
+              className="email-input"
+              style={{ textAlign: "left", fontSize: "14px", flex: "1 1 80px", minWidth: "80px" }}
+            />
+            <input
+              type="text"
+              placeholder="备注（可选），如 重要客户"
+              value={newTagLabel}
+              onChange={(e) => setNewTagLabel(e.target.value)}
+              className="email-input"
+              style={{ textAlign: "left", fontSize: "14px", flex: "2 1 120px", minWidth: "120px" }}
+            />
+            <input
+              type="email"
+              placeholder="转发到，如 you@gmail.com"
+              value={newTagTarget}
+              onChange={(e) => setNewTagTarget(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addTagRule()}
+              className="email-input"
+              style={{ textAlign: "left", fontSize: "14px", flex: "2 1 160px", minWidth: "160px" }}
+            />
+            <button
+              onClick={addTagRule}
               className="px-6 py-2 rounded-lg font-medium text-white text-sm whitespace-nowrap"
               style={{ background: "var(--primary)" }}
             >
