@@ -243,7 +243,7 @@ export default function AdminPage() {
   const addTagRule = () => {
     const tag = newTagName.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
     const target = newTagTarget.trim();
-    if (!tag || !target) { showToast("⚠️ 请填写标签名和目标邮箱"); return; }
+    if (!tag) { showToast("⚠️ 请填写标签名"); return; }
     if (config.tagRules.some((r) => r.tag === tag)) { showToast("⚠️ 该标签已存在"); return; }
     setConfig({
       ...config,
@@ -548,8 +548,10 @@ export default function AdminPage() {
                   {rule.label && (
                     <span className="text-sm text-gray-600">{rule.label}</span>
                   )}
-                  <span className="text-gray-400 text-sm">→</span>
-                  <span className="font-mono text-sm text-blue-600">{rule.target}</span>
+                  {rule.target && <>
+                    <span className="text-gray-400 text-sm">→</span>
+                    <span className="font-mono text-sm text-blue-600">{rule.target}</span>
+                  </>}
                 </div>
                 <button
                   onClick={() => removeTagRule(rule.tag)}
