@@ -300,6 +300,25 @@ function EmailPanel({ address, onClose }: { address: string; onClose: () => void
 
   useEffect(() => { load(); }, [load]);
 
+  // 展开 10s 后开始每 5s 刷新，共刷 6 次（30s）后停止
+  const loadRef = useRef(load);
+  useEffect(() => { loadRef.current = load; }, [load]);
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+    const startTimer = setTimeout(() => {
+      let count = 0;
+      interval = setInterval(() => {
+        loadRef.current();
+        count++;
+        if (count >= 6) { clearInterval(interval!); interval = null; }
+      }, 5000);
+    }, 10000);
+    return () => {
+      clearTimeout(startTimer);
+      if (interval) clearInterval(interval);
+    };
+  }, []);
+
   return (
     <div className="mt-3 rounded-xl border" style={{ background: "#f8faff", borderColor: "var(--primary-light)" }}>
       {toast && <div className="toast">{toast}</div>}
@@ -689,6 +708,15 @@ export default function Home() {
   // Reset to page 1 when filter/tag changes
   useEffect(() => { setPage(1); }, [activeTag, startDate, endDate, linkStartDate, linkEndDate]);
 
+  // Auto-refresh every 10s when 未收到链接 filter is active
+  const loadEntriesRef = useRef(loadEntries);
+  useEffect(() => { loadEntriesRef.current = loadEntries; }, [loadEntries]);
+  useEffect(() => {
+    if (!linkStartDate && !linkEndDate) return;
+    const id = setInterval(() => { loadEntriesRef.current(); }, 10000);
+    return () => clearInterval(id);
+  }, [linkStartDate, linkEndDate]);
+
   const totalPages = Math.max(1, Math.ceil(totalEntries / PAGE_SIZE));
 
   const tabs = [
@@ -786,7 +814,7 @@ export default function Home() {
               )}
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-gray-500 shrink-0 w-20">收到链接：</span>
+              <span className="text-xs text-gray-500 shrink-0 w-20">未收到链接：</span>
               <input type="date" value={linkStartDate} onChange={e => setLinkStartDate(e.target.value)}
                 className="text-xs rounded-lg border px-2 py-1.5 outline-none"
                 style={{ borderColor: "#e0e0e0", color: "var(--primary-dark)" }} />
@@ -824,9 +852,10 @@ export default function Home() {
                   </div>
                   <div className="text-xs text-gray-400 mt-0.5">
                     创建于 {formatTime(entry.created_at)}
-                    {entry.last_link_received_at && (
-                      <span className="ml-2">· 收到链接 {formatTime(entry.last_link_received_at)}</span>
-                    )}
+                    {entry.last_link_received_at
+                      ? <span className="ml-2">· 收到链接 {formatTime(entry.last_link_received_at)}</span>
+                      : <span className="ml-2">· 未收到链接</span>
+                    }
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">

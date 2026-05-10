@@ -426,8 +426,8 @@ async function handleFetch(request: Request, env: Env): Promise<Response> {
     const binds: (string | number)[] = tag ? [tag, `%-${tag}@%`] : [];
     if (start) { where += " AND created_at >= ?"; binds.push(parseInt(start)); }
     if (end) { where += " AND created_at <= ?"; binds.push(parseInt(end)); }
-    if (linkStart) { where += " AND last_link_received_at >= ?"; binds.push(parseInt(linkStart)); }
-    if (linkEnd) { where += " AND last_link_received_at <= ?"; binds.push(parseInt(linkEnd)); }
+    if (linkStart) { where += " AND (last_link_received_at IS NULL OR last_link_received_at < ?)"; binds.push(parseInt(linkStart)); }
+    if (linkEnd) { where += " AND (last_link_received_at IS NULL OR last_link_received_at > ?)"; binds.push(parseInt(linkEnd)); }
 
     const countRow = await env.DB.prepare(`SELECT COUNT(*) as total FROM passwords ${where}`).bind(...binds).first() as { total: number } | null;
     const total = countRow?.total || 0;
