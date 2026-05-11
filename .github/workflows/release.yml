@@ -31,11 +31,12 @@ jobs:
 
       - name: Create release archive
         run: |
-          tar -czf release-${{ github.ref_name }}.tar.gz \
+          tar -czf /tmp/release-${{ github.ref_name }}.tar.gz \
             --exclude='.git' \
             --exclude='node_modules' \
             --exclude='.next' \
             .
+          mv /tmp/release-${{ github.ref_name }}.tar.gz .
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v2
