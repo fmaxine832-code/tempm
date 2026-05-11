@@ -1,0 +1,10 @@
+name = "warmup-worker"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+account_id = "YOUR_CLOUDFLARE_ACCOUNT_ID"
+
+[triggers]
+crons = ["0 10 * * *"]
+
+[vars]
+TARGET_EMAIL = "your@email.com"
