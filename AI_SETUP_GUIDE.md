@@ -21,8 +21,8 @@ Phase 2  → 收集凭据（Cloudflare API Key、管理员密码）
 Phase 3  → 安装依赖（全自动）
 Phase 4  → 通过 Cloudflare API 添加域名，获取 NS 地址（全自动）
 Phase 5  → 引导用户在 Namecheap 修改 NS 记录（用户操作②）
-Phase 6  → 等待 NS 生效，通过 API 配置 Email Routing（全自动）
-Phase 7  → 创建 D1 数据库 + 部署 Worker（全自动）
+Phase 6  → 等待 NS 生效，开启 Email Routing（全自动，暂不绑定 Catch-all）
+Phase 7  → 创建 D1 数据库 + 部署 Worker + 绑定 Catch-all（全自动，顺序不可调换）
 Phase 8  → 部署前端到 Vercel（用户操作③：浏览器登录，其余全自动）
 Phase 9  → 更新 CORS 配置并重新部署 Worker（全自动）
 Phase 10 → 验证并引导完成管理员面板初始配置
@@ -266,23 +266,6 @@ curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/email/routi
 
 Cloudflare 自动添加所需的 MX 和 SPF 记录，无需手动操作。
 
-### 6.3 添加 Catch-all 规则（所有来信 → Worker）
-
-```bash
-curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/email/routing/rules" \
-  -H "X-Auth-Email: $CF_EMAIL" \
-  -H "X-Auth-Key: $CF_API_KEY" \
-  -H "Content-Type: application/json" \
-  --data '{
-    "name": "Catch-all to temp-mail-worker",
-    "enabled": true,
-    "matchers": [{"type": "all"}],
-    "actions": [{"type": "worker", "value": ["temp-mail-worker"]}]
-  }'
-```
-
-确认响应中 `success` 为 `true`。
-
 ---
 
 ## Phase 7：创建 D1 数据库并部署 Worker（全自动）
@@ -336,18 +319,37 @@ ADMIN_PASSWORD = "$ADMIN_PASSWORD"
 ### 7.3 初始化数据库表结构
 
 ```bash
-npm run db:init
+cd worker && npm run db:init && cd ..
 ```
 
 ### 7.4 部署 Worker
 
 ```bash
-npm run deploy
+cd worker && npm run deploy && cd ..
 ```
 
 解析输出中的 Worker URL（格式：`https://temp-mail-worker.账号名.workers.dev`），存入 `$WORKER_URL`。
 
 告知用户：`✅ 后端已部署完成。`
+
+### 7.5 绑定 Email Routing Catch-all 规则（Worker 已存在后才可执行）
+
+```bash
+curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/email/routing/rules/catch_all" \
+  -H "X-Auth-Email: $CF_EMAIL" \
+  -H "X-Auth-Key: $CF_API_KEY" \
+  -H "Content-Type: application/json" \
+  --data '{
+    "name": "Catch-all to temp-mail-worker",
+    "enabled": true,
+    "matchers": [{"type": "all"}],
+    "actions": [{"type": "worker", "value": ["temp-mail-worker"]}]
+  }'
+```
+
+确认响应中 `success` 为 `true`。
+
+> 此步骤必须在 Worker 部署完成后执行（7.4 之后），否则 Cloudflare 因 Worker 不存在而报错。
 
 ---
 
@@ -377,22 +379,29 @@ vercel login
 
 等用户确认登录完成。
 
-### 8.3 部署到 Vercel
+### 8.3 首次初始化项目（仅第一次部署需要）
 
 ```bash
-vercel --yes -e NEXT_PUBLIC_WORKER_URL="$WORKER_URL"
+vercel --yes
 ```
 
-首次部署时 vercel 会提问，按以下方式回答：
+vercel 会提问，按以下方式回答：
 - `Set up and deploy?` → Y
 - `Which scope?` → 选择个人账号
 - `Link to existing project?` → N
 - `What's your project's name?` → temp-mail（或任意名称）
 - `In which directory is your code located?` → ./（直接回车）
 
-解析输出中的预览 URL，存入 `$VERCEL_PREVIEW_URL`。
+### 8.4 写入构建期环境变量
 
-### 8.4 发布到生产
+`NEXT_PUBLIC_WORKER_URL` 是 Next.js 构建期变量，必须在 build 前注入，不能用 `-e` 运行时传入：
+
+```bash
+vercel env add NEXT_PUBLIC_WORKER_URL production <<< "$WORKER_URL"
+vercel env add NEXT_PUBLIC_WORKER_URL preview <<< "$WORKER_URL"
+```
+
+### 8.5 发布到生产
 
 ```bash
 vercel --prod --yes
